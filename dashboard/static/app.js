@@ -17,17 +17,32 @@ function showToast(message, type = "info") {
   setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }, 3000);
 }
 
+// ── Auth ──
+function getAuthToken() { return localStorage.getItem("dashboard_auth_token") || ""; }
+function setAuthToken(t) { localStorage.setItem("dashboard_auth_token", t); }
+function clearAuthToken() { localStorage.removeItem("dashboard_auth_token"); }
+function authHeaders() {
+  const t = getAuthToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+function promptLogin() {
+  const t = prompt("Dashboard Auth Token:");
+  if (t) { setAuthToken(t.trim()); location.reload(); }
+}
+
 const API = {
   async get(url) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.status === 401) { clearAuthToken(); promptLogin(); return null; }
       if (!res.ok) { showToast(`요청 실패: ${res.status}`, "error"); return null; }
       return res.json();
     } catch (e) { showToast(`네트워크 오류: ${e.message}`, "error"); return null; }
   },
   async post(url, body) {
     try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify(body) });
+      if (res.status === 401) { clearAuthToken(); promptLogin(); return null; }
       if (!res.ok) { const d = await res.json().catch(() => ({})); showToast(d.error || `요청 실패: ${res.status}`, "error"); return null; }
       return res.json();
     } catch (e) { showToast(`네트워크 오류: ${e.message}`, "error"); return null; }
